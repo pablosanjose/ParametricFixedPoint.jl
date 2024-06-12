@@ -7,7 +7,7 @@
 
 The goal of this package is to solve for $x$ in the parametric fixed-point equation $f(x, p) = x$ starting from a solution $x_0$ of $f(x_0, p_0) = x_0$
 
-While $p$ is a real parameter, $x$ can be anything that supports addition and multiplication by scalars (e.g. $x$ could be a scalar but also an array).
+Here, $p$ is a real parameter, but $x$ can be anything that supports addition and multiplication by scalars (e.g. $x$ could be a scalar but also an array). The problem assumes that a solution $x_0$ can be found easily at $p_0$, while the solution of interest at $p$ is difficult to obtain.
 
 ## Interface
 
@@ -16,13 +16,9 @@ The `ParametricFixedPoint` package exports a single function, with the following
 gfp(f, x0, (p0, p); ep0 = 0.05, checkseed = false, kw...)
 ```
 
-Here `kw` are parameters passed to the fixed-point `afps` solver from the `FixedPoint` package, `ep0` is the tracking parameter, denoted $\epsilon_0 \in (0,0.5]$ in the algorithm description below, and `checkseed` controls whether `x0` is checked to actually be a solution of `f(x0, p0) = x0`.
+Here `kw` are parameters passed to the fixed-point `afps` solver from the `FixedPoint.jl` package, `ep0` is the tracking parameter, denoted $\epsilon_0 \in (0,0.5]$ in the algorithm description, and `checkseed` controls whether `x0` is checked to actually be a solution of `f(x0, p0) = x0`.
 
 If not specified, as in `gpf(f, x0, p; kw...)`, `p0` is assumed to be zero.
-
-## Dependencies
-
-To solve $f(x_n, p_n) = x_n$ at each step of the tracking algorithm, we use the `FixedPoint` package as sole, lightweight dependency. `FixedPoint` implements a a simple accelerated iteration algorithm (`afps` function). As long as the initial guess is close to the solution, this should converge relatively fast.
 
 ## Algorithm
 
@@ -60,3 +56,7 @@ Given the above step, the solution $x_n$ at $p_{n+1} = p_n + \Delta p_n$ will th
 ### Final step
 
 As soon as $p_{n+1} = p_n+\Delta p_n$ exceeds the final $p$, i.e. when $p_{n+1} >= p$, we reduce $\Delta p_n = p - p_n$ so that the final point $p_n$ matches $p$.
+
+## Dependencies
+
+To solve $f(x_n, p_n) = x_n$ at each step of the tracking algorithm, we use the `FixedPoint.jl` package as sole, lightweight dependency. `FixedPoint.jl` implements a a simple accelerated iteration algorithm (`afps` function). As long as the initial guess is close to the solution, this should converge relatively fast.
