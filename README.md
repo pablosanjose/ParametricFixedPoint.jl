@@ -15,6 +15,7 @@ The `ParametricFixedPoint` package exports a single function, with the following
 ```julia
 gfp(f, x0, (p0, p); ep0 = 0.05, checkseed = false, kw...)
 ```
+This function returns a tuple of the form `(x, error, iterations)`, where `error` is the numerical error of solution `x` and `iterations` is the total number of evaluations of the function `f` performed.
 
 Here `kw` are parameters passed to the fixed-point `afps` solver from the `FixedPoint.jl` package, `ep0` is the tracking parameter, denoted $\epsilon_0 \in (0,0.5]$ in the algorithm description, and `checkseed` controls whether `x0` is checked to actually be a solution of `f(x0, p0) = x0`.
 
