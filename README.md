@@ -16,9 +16,13 @@ The `ParametricFixedPoint` package exports a single function, with the following
 gfp(f, x0, (p0, p); ep0 = 0.05, checkseed = false, kw...)
 ```
 
-Here `kw` are parameters passed to the fixed-point `afps` solver from the `FixedPoint` package, `ep0` is the tracking parameter, denoted $\epsilon_0 \in (0,0.5]$ below, and `checkseed` controls whether `x0` is checked to be a solution of `f(x0, p0) = x0`.
+Here `kw` are parameters passed to the fixed-point `afps` solver from the `FixedPoint` package, `ep0` is the tracking parameter, denoted $\epsilon_0 \in (0,0.5]$ in the algorithm description below, and `checkseed` controls whether `x0` is checked to actually be a solution of `f(x0, p0) = x0`.
 
 If not specified, as in `gpf(f, x0, p; kw...)`, `p0` is assumed to be zero.
+
+## Dependencies
+
+To solve $f(x_n, p_n) = x_n$ at each step of the tracking algorithm, we use the `FixedPoint` package as sole, lightweight dependency. `FixedPoint` implements a a simple accelerated iteration algorithm (`afps` function). As long as the initial guess is close to the solution, this should converge relatively fast.
 
 ## Algorithm
 
@@ -40,12 +44,14 @@ We now continue increasing $p_n$ in $\Delta p_n$ steps until we reach the final 
 Assume we have computed the solutions $x_n$ up to $p_n$ and would like to compute the solution at $p_{n+1} = p_n + \Delta p_n$. To choose the appropriate $\Delta p_n$ we use information of the last three solutions $x_{n-2}$, $x_{n-1}$ and $x_{n}$, with which we build a quadratic interpolation
 $$x(p) \approx (p-p_n)^2 a + (p-p_n) b + c$$
 The constants $a, b, c$ are obtained from the conditions $x(p_n) = x_n$, $x(p_{n-1}) = x_{n-1}$ and $x(p_{n-2}) = x_{n-2}$. This yields
+
 $$\begin{align*}
 a &= \frac{\Delta p_{n-1} x_{n-2} -(\Delta p_{n-1}+\Delta p_{n-1})x_{n-1}+\Delta p_{n-2}x_n}{(\Delta p_{n-2}+\Delta p_{n-1})\Delta p_{n-2}\Delta p_{n-1}} \\
 b &= \frac{\Delta p_{n-1}x_{n-2} - (\Delta p_{n-2}+\Delta p_{n-1})^2 x_{n-1}+\Delta p_{n-2}(\Delta p_{n-2}+2\Delta p_{n-1}) x_n}{(\Delta p_{n-2}+\Delta p_{n-1})\Delta p_{n-2}\Delta p_{n-1}} \\
 c &= x_n
 \end{align*}
 $$
+
 Using this interpolation, we can estimate $x(p_{n+1}) = \Delta p_n^2 a+\Delta p_n b + c \approx x_{n+1}$. We will define the size of the next parameter step $\Delta p_n$ such that the distance $|x_{n+1}-x_n| = \Delta p_n|a\Delta p_n + b|$ is equal to $|\Delta x|$. Assuming $\Delta p_n$ is small, we obtain
 $$\Delta p_n \approx \frac{|\Delta x|}{\left|a\frac{|\Delta x|}{|b|} + b\right|}$$
 
@@ -54,7 +60,3 @@ Given the above step, the solution $x_n$ at $p_{n+1} = p_n + \Delta p_n$ will th
 ### Final step
 
 As soon as $p_{n+1} = p_n+\Delta p_n$ exceeds the final $p$, i.e. when $p_{n+1} >= p$, we reduce $\Delta p_n = p - p_n$ so that the final point $p_n$ matches $p$.
-
-### Iterations
-
-To solve $f(x_n, p_n) = x_n$ at each step we use the `FixedPoint` package, which implements a a simple accelerated iteration algorithm (`afps` function). As long as the initial guess is close to the solution, this should converge relatively fast.
