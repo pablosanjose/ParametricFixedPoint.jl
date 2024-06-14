@@ -5,10 +5,11 @@ version = "1.0.0-DEV"
 
 [deps]
 FixedPoint = "3325f569-5a18-4e7d-8356-246b69339eea"
+FixedPointAcceleration = "817d07cb-a79a-5c30-9a31-890123675176"
 
 [compat]
-julia = "1.6.7"
 FixedPoint = "1"
+julia = "1.6.7"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

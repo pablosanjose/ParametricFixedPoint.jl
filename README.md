@@ -13,12 +13,32 @@ Here, $f(x, p)$ is a general function that returns an object of the same type as
 
 The `ParametricFixedPoint` package exports a single function, with the following interface
 ```julia
-pfp(f, x0; dp = 0.05, tol = 1e-8, checkseed = true, grad_norm = x -> maximum(abs, x), kw...)
+pfp(f, x0;
+    dp = 0.05,
+    norm = x -> maximum(abs, x),
+    stepsolver = FP_solver(f; grad_norm = norm, tol = 1e-3),
+    finalsolver = FP_solver(f; grad_norm = norm, tol = 1e-8))
 ```
-This function returns a tuple of the form `(x, error, iterations)`, where `error` is the numerical error of solution `x` and `iterations` is the total number of evaluations of the function `f` performed.
+This function returns a tuple of the form `(x, error, steps, iterations)`, where `error` is the numerical error of solution `x`, steps is the number of `pₙ` steps and `iterations` is the total number of evaluations of the function `f` performed.
 
 ### Keywords
-Here `dp` is the initial parameter step, denoted $\Delta p_0 \in (0,1]$ in the algorithm description. `tol` is the absolute tolerance used to determine convergence of solutions. `checkseed` controls whether `x0` is checked to actually be a solution of `f(x0, p0) = x0`, i.e. whether `|f(x0,p0) - x0|<tol`. `grad_norm` is the function used to compute `|f(x,p) - x|`. It defines a distance in the space of $x$, with all the usual properties of a distance (e.g. `grad_norm(λ*x) = abs(λ)*grad_norm(x)>0` for a real `λ`). Finally, `kw` includes additional parameters that are passed to the fixed-point `afps` solver from the `FixedPoint.jl` package to solve each step.
+Here `dp` is the initial parameter step, denoted $\Delta p_0 \in (0,1]$ in the algorithm description.`norm` is the function used to compute `|f(x,p) - x|`. It defines a distance in the space of $x$, with all the usual properties of a distance (e.g. `norm(λ*x) = abs(λ)*norm(x)>0` for a real `λ`).
+
+The solver used for each intermediate step is defined by `stepsolver`, while the final step uses `finalsolver`. Each of these solvers should be a function such that `solver(xₛ, pₙ)` returns the solution `(xₙ, error, iterations)` of `f(xₙ, pₙ) = xₙ` using `xₛ` as seed.
+
+By default both `stepsolver` and `finalsolver` are given by `FP_solver(f; grad_norm = norm)` (with larger tolerance for intermediate steps), which leverages `afps` from the `FixedPoint.jl` dependency,
+```julia
+FP_solver(f; kw...) = (xₛ, pₙ) -> FixedPoint.afps(x -> f(x, pₙ), xₛ; kw...)
+```
+See the `FixedPoint.jl` [homepage](https://github.com/francescoalemanno/FixedPoint.jl) for available `kw` options.
+
+More sophisticated solvers may be used. As an example, we may use the `FixedPointAcceleration.jl` package, which is also a dependency, and do e.g. `stepsolver = FPA_solver(f; Algorithm = :Anderson)`, which uses `FixedPointAcceleration.fixed_point` internally:
+```julia
+FPA_solver(f; kw...) = (xₛ, pₙ) -> begin
+    solution = fixed_point(x -> f.(x, pₙ), xₛ; kw...)
+    return (solution.FixedPoint_, solution.Convergence_, solution.Iterations_)
+end
+```
 
 ## Algorithm
 
@@ -54,7 +74,3 @@ $$\Delta p_n \approx \frac{|\Delta x|}{\left|a\frac{|\Delta x|}{|b|} + b\right|}
 Given the above $\Delta p_n$, the solution $x_n$ at $p_{n+1} = p_n + \Delta p_n$ will then be computed by iteration of $f(x, p_{n+1}) = x$ using the interpolation $\Delta p_n^2 a+\Delta p_n b+c$ as initial guess.
 
 As soon as $p_{n+1} = p_n+\Delta p_n$ exceeds the final value $p=1$, i.e. when $p_{n+1} >= 1$, we reduce $\Delta p_n = 1 - p_n$ so that the final point is $p_n=1$. After this, we conclude.
-
-## Dependencies
-
-To solve $f(x_n, p_n) = x_n$ at each step of the tracking algorithm, we use the `FixedPoint.jl` package as a lightweight external dependency. `FixedPoint.jl` implements a a simple accelerated iteration algorithm (`afps` function). As long as the initial guess is close to the solution, it should converge relatively fast. See the `FixedPoint.jl` [homepage](https://github.com/francescoalemanno/FixedPoint.jl) for details on supported keywords.
