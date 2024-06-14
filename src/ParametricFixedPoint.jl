@@ -112,15 +112,15 @@ end
 #### SIAMFANLEquations
 
 # fp(x, p) -> new x
-function pfp(fp, x0, p0::Real, m = 3, vstore = zeros(length(x0)+1, 3m+3); kw...)
-    x0p = wrap(copy(x0), p0)
+function pfp(fp, x0, p0::Real, m = 3; kw...)
+    x0p = wrap(x0, p0)
+    vstore = zeros(length(x0p), 3m+3)
     function f!(xp´, xp)
         p = pop!(xp)
         x = unwrap(xp, x0)
-        x´ = fp(x, clamp(abs(p), 0.0, 1.0))
+        x´ = wrap(fp(x, clamp(abs(p), 0.0, 1.0)), pcurve(p))
         push!(xp, p)
         copyto!(xp´, x´)
-        xp´[end] = pcurve(p)
         return xp´
     end
     sol = aasol(f!, x0p, m, vstore; kw...)
@@ -150,7 +150,8 @@ wrap(x::AbstractVector{T}) where {T<:Real} = x
 wrap(x::AbstractVector{T}) where {T<:Complex} = reinterpret(real(T), x)
 wrap(x::AbstractArray{T}) where {T<:Real} = vec(x)
 wrap(x::AbstractArray{T}) where {T<:Complex} = reinterpret(real(T), vec(x))
-wrap(x, p) = push!(wrap(x), p)
+wrap(x::AbstractArray{<:Real}, p) = push!(wrap(x), p)
+wrap(x, p) = push!(copy(wrap(x)), p)
 
 unwrap(x, ::T) where {T<:Real} = only(x)
 unwrap(x, ::T) where {T<:Complex} = x[1] + im*x[2]
