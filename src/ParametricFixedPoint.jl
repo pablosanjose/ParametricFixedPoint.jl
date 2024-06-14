@@ -136,7 +136,8 @@ function pfp(fp, x0, p0::Real, m = 3, vstore = zeros(length(x0)+1, 3m+3); kw...)
     return (; x = sol.solution, error = last(sol.history), iters = length(sol.history))
 end
 
-pcurve(p) = ifelse(abs(p) >= 1.0, 1.0, abs(p)*(2.0 - abs(p)))
+# pcurve(p) = ifelse(abs(p) >= 1.0, 1.0, abs(p)*(2.0 - abs(p)))
+pcurve(p) = abs(p) >= 1.0 ? 1.0 : sqrt(1.0 - (abs(p)-1.0)^2)
 
 wrap(x::Real) = [x]
 wrap(x::Complex) = [real(x), imag(x)]
