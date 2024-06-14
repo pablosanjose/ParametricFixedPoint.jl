@@ -2,6 +2,7 @@ module ParametricFixedPoint
 
 using FixedPoint
 using FixedPointAcceleration
+using SIAMFANLEquations
 
 export pfp, FP_solver, FPA_solver
 
@@ -90,12 +91,66 @@ FP_solver(f; kw...) = (xₛ, pₙ) -> begin
 end
 
 # from FixedPointAcceleration.jl
-FPA_solver(f; kw...) = (xₛ, pₙ) -> begin
+FPA_solver(f; kw...) = (xₛ, pₙ) -> FPA_solver(f, xₛ, pₙ; kw...)
+
+function FPA_solver(f, xₛ::Number, pₙ; kw...)
     solution = fixed_point(x -> f.(x, pₙ), xₛ; kw...)
-    return (maybe_only(solution.FixedPoint_, xₛ), solution.Convergence_, solution.Iterations_)
+    return (only(solution.FixedPoint_), solution.Convergence_, solution.Iterations_)
 end
 
-maybe_only(x, xₛ::Number) = only(x)
-maybe_only(x, xₛ) = x
+function FPA_solver(f, xₛ::AbstractVector, pₙ; kw...)
+    solution = fixed_point(x -> f(x, pₙ), xₛ; kw...)
+    return (solution.FixedPoint_, solution.Convergence_, solution.Iterations_)
+end
+
+function FPA_solver(f, xₛ::AbstractArray, pₙ; kw...)
+    s = size(xₛ)
+    solution = fixed_point(x -> vec(f(reshape(x, s), pₙ)), vec(xₛ); kw...)
+    return (copy(reshape(solution.FixedPoint_, s)), solution.Convergence_, solution.Iterations_)
+end
+
+#### SIAMFANLEquations
+
+# fp(x, p) -> new x
+function pfp(fp, x0, p0::Real, m = 3, vstore = zeros(length(x0)+1, 3m+3); kw...)
+    x0p = wrap(copy(x0), p0)
+    function f!(xp´, xp)
+        p = pop!(xp)
+        x = unwrap(xp, x0)
+        x´ = fp(x, p)
+        push!(xp, p)
+        copyto!(xp´, x´)
+        xp´[end] = pcurve(p)
+        return xp´
+    end
+    sol = aasol(f!, x0p, m, vstore; kw...)
+    if sol.errcode != 0
+        println(sol.history)
+        error("Couldn't converge. Error $(sol.errcode)")
+    end
+    p = pop!(sol.solution)
+    if !(p ≈ 1.0)
+        println(sol.history)
+        error("Did not reach p = 1.0, converged to p = $p")
+    end
+    return (; x = sol.solution, error = last(sol.history), iters = length(sol.history))
+end
+
+pcurve(p) = ifelse(abs(p) >= 1.0, 1.0, abs(p)*(2.0 - abs(p)))
+
+wrap(x::Real) = [x]
+wrap(x::Complex) = [real(x), imag(x)]
+wrap(x::AbstractVector{T}) where {T<:Real} = x
+wrap(x::AbstractVector{T}) where {T<:Complex} = reinterpret(real(T), x)
+wrap(x::AbstractArray{T}) where {T<:Real} = vec(x)
+wrap(x::AbstractArray{T}) where {T<:Complex} = reinterpret(real(T), vec(x))
+wrap(x, p) = push!(wrap(x), p)
+
+unwrap(x, ::T) where {T<:Real} = only(x)
+unwrap(x, ::T) where {T<:Complex} = x[1] + im*x[2]
+unwrap(x, ::T) where {C<:Real,T<:AbstractVector{C}} = x
+unwrap(x, ::T) where {C<:Complex,T<:AbstractVector{C}} = reinterpret(C, x)
+unwrap(x, m::T) where {C<:Real,T<:AbstractArray{C}} = reshape(x, size(m))
+unwrap(x, m::T) where {C<:Complex,T<:AbstractArray{C}} = reinterpret(C, reshape(x, size(m)))
 
 end # module

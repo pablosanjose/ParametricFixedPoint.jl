@@ -26,19 +26,9 @@ Here `dp` is the initial parameter step, denoted $\Delta p_0 \in (0,1]$ in the a
 
 The solver used for each intermediate step is defined by `stepsolver`, while the final step uses `finalsolver`. Each of these solvers should be a function such that `solver(xₛ, pₙ)` returns the solution `(xₙ, error, iterations)` of `f(xₙ, pₙ) = xₙ` using `xₛ` as seed.
 
-By default both `stepsolver` and `finalsolver` are given by `FP_solver(f; grad_norm = norm)` (with larger tolerance for intermediate steps), which leverages `afps` from the `FixedPoint.jl` dependency,
-```julia
-FP_solver(f; kw...) = (xₛ, pₙ) -> FixedPoint.afps(x -> f(x, pₙ), xₛ; kw...)
-```
-See the `FixedPoint.jl` [homepage](https://github.com/francescoalemanno/FixedPoint.jl) for available `kw` options.
+By default both `stepsolver` and `finalsolver` are given by `FP_solver(f; grad_norm = norm)` (with larger tolerance for intermediate steps), which leverages `afps` from the `FixedPoint.jl` dependency. Additional options `kw`  can be passed to `afps` through `FP_solver`, see the `FixedPoint.jl` [homepage](https://github.com/francescoalemanno/FixedPoint.jl) for available keywords.
 
-More sophisticated solvers may be used. As an example, we may use the `FixedPointAcceleration.jl` package, which is also a dependency, and do e.g. `stepsolver = FPA_solver(f; Algorithm = :Anderson)`, which uses `FixedPointAcceleration.fixed_point` internally:
-```julia
-FPA_solver(f; kw...) = (xₛ, pₙ) -> begin
-    solution = fixed_point(x -> f.(x, pₙ), xₛ; kw...)
-    return (solution.FixedPoint_, solution.Convergence_, solution.Iterations_)
-end
-```
+More sophisticated solvers may be used. As an example, we may use the `FixedPointAcceleration.jl` package, which is also a dependency, and do e.g. `stepsolver = FPA_solver(f; Algorithm = :Anderson, ...)`, which uses `FixedPointAcceleration.fixed_point` internally. See the `FixedPointAcceleration.jl` [homepage](https://github.com/s-baumann/FixedPointAcceleration.jl) for available keywords.
 
 ## Algorithm
 
