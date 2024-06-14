@@ -117,13 +117,17 @@ function pfp(fp, x0, p0::Real, m = 3, vstore = zeros(length(x0)+1, 3m+3); kw...)
     function f!(xp´, xp)
         p = pop!(xp)
         x = unwrap(xp, x0)
-        x´ = fp(x, p)
+        x´ = fp(x, clamp(abs(p), 0.0, 1.0))
         push!(xp, p)
         copyto!(xp´, x´)
         xp´[end] = pcurve(p)
         return xp´
     end
     sol = aasol(f!, x0p, m, vstore; kw...)
+    return process_solution(sol)
+end
+
+function process_solution(sol)
     if sol.errcode != 0
         println(sol.history)
         error("Couldn't converge. Error $(sol.errcode)")
@@ -137,6 +141,7 @@ function pfp(fp, x0, p0::Real, m = 3, vstore = zeros(length(x0)+1, 3m+3); kw...)
 end
 
 # pcurve(p) = ifelse(abs(p) >= 1.0, 1.0, abs(p)*(2.0 - abs(p)))
+# pcurve(p) = abs(p) >= 1.0 ? 1.0 : sign(p) * sqrt(1.0 - (abs(p)-1.0)^2)
 pcurve(p) = abs(p) >= 1.0 ? 1.0 : sqrt(1.0 - (abs(p)-1.0)^2)
 
 wrap(x::Real) = [x]
