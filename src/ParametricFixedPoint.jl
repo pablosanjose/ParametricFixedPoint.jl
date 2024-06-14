@@ -84,7 +84,10 @@ muladd_broadcast!(xs, a1, a2, a3, a4) = (@. xs = a1*a2 + a3*a4; xs)
 muladd_broadcast!(xs::Ref, a1, a2, a3, a4, a5, a6) = (xs[] = a1*a2 + a3*a4 + a5*a6)
 muladd_broadcast!(xs, a1, a2, a3, a4, a5, a6) = (@. xs = a1*a2 + a3*a4 + a5*a6; xs)
 
-FP_solver(f; kw...) = (xₛ, pₙ) -> afps(Base.Fix2(f, pₙ), xₛ; kw...)
+FP_solver(f; kw...) = (xₛ, pₙ) -> begin
+    solution = afps(Base.Fix2(f, pₙ), xₛ; kw...)
+    return (solution.x, solution.error, solution.iters)
+end
 
 # from FixedPointAcceleration.jl
 FPA_solver(f; kw...) = (xₛ, pₙ) -> begin
