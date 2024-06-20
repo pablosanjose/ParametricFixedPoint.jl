@@ -13,54 +13,13 @@ Here, $f(x, p)$ is a general function that returns an object of the same type as
 
 The `ParametricFixedPoint` package exports a single function, with the following interface
 ```julia
-pfp(f, x0;
-    dp = 0.05,
-    norm = x -> maximum(abs, x),
-    stepsolver = FP_solver(f; grad_norm = norm, tol = 1e-3),
-    finalsolver = FP_solver(f; grad_norm = norm, tol = 1e-8))
+pfp(f, x0, p0 = 1; order = 2, converge_error = false, kw...)
 ```
-This function returns a tuple of the form `(x, error, steps, iterations)`, where `error` is the numerical error of solution `x`, steps is the number of `pₙ` steps and `iterations` is the total number of evaluations of the function `f` performed.
+This function returns a tuple of the form `(x, error, iterations)`, where `error` is the numerical error of solution `x`,  and `iterations` is the total number of evaluations of the function `f` performed. The initial parameter `p0` is used as a seed for `p` that also gets iterated by the algorithm in a way designed to flow to a stable `p=1` fixed point. The iteration uses Anderson acceleration and employs the `aasol` implementation from SIAMFANLEquations.jl. The `order` keyword corresponds to the `m` argument of `aasol`, and controls how many prior iterations are taken into account to compute the next one. If `converge_error = true` an error will be thrown if the solution is not converged. The rest of keywords `kw` are passed directly to `aasol`. Allowed keywords are described [here](https://ctkelley.github.io/SIAMFANLEquations.jl/dev/functions/aasol/).
 
-### Keywords
-Here `dp` is the initial parameter step, denoted $\Delta p_0 \in (0,1]$ in the algorithm description.`norm` is the function used to compute `|f(x,p) - x|`. It defines a distance in the space of $x$, with all the usual properties of a distance (e.g. `norm(λ*x) = abs(λ)*norm(x)>0` for a real `λ`).
-
-The solver used for each intermediate step is defined by `stepsolver`, while the final step uses `finalsolver`. Each of these solvers should be a function such that `solver(xₛ, pₙ)` returns the solution `(xₙ, error, iterations)` of `f(xₙ, pₙ) = xₙ` using `xₛ` as seed.
-
-By default both `stepsolver` and `finalsolver` are given by `FP_solver(f; grad_norm = norm)` (with larger tolerance for intermediate steps), which leverages `afps` from the `FixedPoint.jl` dependency. Additional options `kw`  can be passed to `afps` through `FP_solver`, see the `FixedPoint.jl` [homepage](https://github.com/francescoalemanno/FixedPoint.jl) for available keywords.
-
-More sophisticated solvers may be used. As an example, we may use the `FixedPointAcceleration.jl` package, which is also a dependency, and do e.g. `stepsolver = FPA_solver(f; Algorithm = :Anderson, ...)`, which uses `FixedPointAcceleration.fixed_point` internally. See the `FixedPointAcceleration.jl` [homepage](https://github.com/s-baumann/FixedPointAcceleration.jl) for available keywords.
 
 ## Algorithm
 
-The general idea of the method is to gradually increase the real parameter $p$ from $p=0$ (where we have a solution $x_0$) to its final value $p=1$, so that we track the fixed point for $x$ quasi-continuously in $p$. The $p_n$ steps are chosen adaptively, depending on the rate of change of the solution $x$ along the way.
+The algorithm used by `pfp` can only find stable fixed points, i.e. points `x` such that `x = f(x, 1)` (fixed point) and `|∂ₓf(x, 1)| < 1` (stable). Unstable fixed points require recasting the problem to be stable, e.g. by using the inverse of `f`.
 
-### Preparation phase
-
-As a first step, parameter $p$ is increase from $p_0=0$ to $p_1=p_0+\Delta p_0$, where $\Delta p_0 \in (0,1]$ is a user-provided parameter (typically small).
-
-With this $p_1$ we solve the problem $f(x_1, p_1) = x_1$ by iteration, using $x_0$ as initial guess. This should converge quickly, since $x_0$ is a good guess ($x_1$ is similar to $x_0$, assuming $f$ is well-behaved and $\epsilon_0$ is small).
-
-We do this $p$ increment a second time, from $p_1$ to $p_2=p_1 + \Delta p_1$, where we use $\Delta p_1 = \Delta p_0$. We compute the solution $x_2$ of $f(x_2, p_2) = x_2$. In this step we use $2x_1-x_0$ as initial guess, which corresponds to a linear interpolation at $p_2 = p_1 + \Delta p_1 = p_0 + 2\Delta p_0$ from the two previous results.
-
-This concludes the preparation phase, at the end of which we have $x_0$, $x_1$ and $x_2$, the converged solutions for $p_0$, $p_1$ and $p_2$. We also have the average distance between solutions, $|\Delta x| = (|x_2-x_1|+|x_1-x_0|)/2$. Here, $|x|$ is real, and is given by a user-provided definition of `norm`, a distance over the space of solutions.
-
-### Tracking phase
-We now continue increasing $p_n$ in $\Delta p_n$ steps until we reach the final $p=1$. The key of this tracking phase is to choose $\Delta p_n$ in an adaptive way, so that the change $|\Delta x_n| = |x_{n+1} - x_{n}|$ is more or less constant, and equal to the $|\Delta x|$ we have obtained in the preparation phase.
-
-Assume we have computed the solutions $x_n$ up to $p_n$ and would like to compute the solution at $p_{n+1} = p_n + \Delta p_n$. To choose the appropriate $\Delta p_n$ we use information of the last three solutions $x_{n-2}$, $x_{n-1}$ and $x_{n}$, with which we build a quadratic interpolation
-$$x(p) \approx (p-p_n)^2 a + (p-p_n) b + c$$
-The constants $a, b, c$ are obtained from the conditions $x(p_n) = x_n$, $x(p_{n-1}) = x_{n-1}$ and $x(p_{n-2}) = x_{n-2}$. This yields
-
-$$\begin{align*}
-a &= \frac{\Delta p_{n-1} x_{n-2} -(\Delta p_{n-2}+\Delta p_{n-1})x_{n-1}+\Delta p_{n-2}x_n}{(\Delta p_{n-2}+\Delta p_{n-1})\Delta p_{n-2}\Delta p_{n-1}} \\
-b &= \frac{\Delta p_{n-1}^2x_{n-2} - (\Delta p_{n-2}+\Delta p_{n-1})^2 x_{n-1}+\Delta p_{n-2}(\Delta p_{n-2}+2\Delta p_{n-1}) x_n}{(\Delta p_{n-2}+\Delta p_{n-1})\Delta p_{n-2}\Delta p_{n-1}} \\
-c &= x_n
-\end{align*}
-$$
-
-Using this interpolation, we can estimate $x(p_{n+1}) = \Delta p_n^2 a+\Delta p_n b + c \approx x_{n+1}$. We will define the size of the next parameter step $\Delta p_n$ such that the distance $|x_{n+1}-x_n| = \Delta p_n|a\Delta p_n + b|$ is equal to $|\Delta x|$. Assuming $\Delta p_n$ is small, we obtain
-$$\Delta p_n \approx \frac{|\Delta x|}{\left|a\frac{|\Delta x|}{|b|} + b\right|}$$
-
-Given the above $\Delta p_n$, the solution $x_n$ at $p_{n+1} = p_n + \Delta p_n$ will then be computed by iteration of $f(x, p_{n+1}) = x$ using the interpolation $\Delta p_n^2 a+\Delta p_n b+c$ as initial guess.
-
-As soon as $p_{n+1} = p_n+\Delta p_n$ exceeds the final value $p=1$, i.e. when $p_{n+1} >= 1$, we reduce $\Delta p_n = 1 - p_n$ so that the final point is $p_n=1$. After this, we conclude.
+If `p0 == 1.0` the `pfp` function will search for the fixed point `x = f(x, 1)` using the [Anderson acceleration](https://en.wikipedia.org/wiki/Anderson_acceleration) algorithm. If `p0 < 1.0` we extend the algorithm to allow adaptive increments of `pₙ` along with `xₙ`. Effectively, we transform the original iteration `xₙ₊₁ = f(xₙ, 1)` into an extended version of the form `xₙ₊₁, pₙ₊₁ = f(xₙ, |pₙ|), f´(pₙ)`, where we start from `p₀ = p0`. Here `f´(p)` is chosen so that `p=0` is an unstable fixed point and `p = ±1` are stable fixed points. Specifically `f´(p) = ifelse(abs(p) >= 1, 1.0, sign(p) * sqrt(1.0 - (abs(p)-1.0)^2))` (other choices that retain the desired fixed point structure can be passed with the keyword `f´`). The algorithm is therefore designed to that `p` will flow along `x` using the same Anderson acceleration scheme from the initial value `p0` to `p = ±1`, in adaptive steps that will ensure optimal convergence of `x`.
