@@ -10,7 +10,7 @@ pfp(f, x0, args...; kw...) = pfp!(f, copy(x0), args...; kw...)
 function pfp!(f, x0, p0::Real = 1;
     order = 2,
     f´ = pcurve, converge_error = false,
-    store = pfp_store(x0, p0, order); kw...)
+    store = pfp_store(x0, p0, order), kw...)
     isextended, v0, vstore = store
     len = length(v0)
     function f!(vp´, vp)
