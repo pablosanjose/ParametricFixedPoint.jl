@@ -1,19 +1,18 @@
 module ParametricFixedPoint
 
-export pfp, pfp!
+export pfp, pfp!, pfp_store
 
 using SIAMFANLEquations: aasol
 
 # Solve fixed point x = f(x, p)
 pfp(f, x0, args...; kw...) = pfp!(f, copy(x0), args...; kw...)
 
-function pfp!(f, x0, p0::Real = 1; order = 2, f´ = pcurve, converge_error = false, kw...)
-    isextended = p0 ≈ 1
-    m = order
-    v0 = tovec(x0)
-    isextended && push!(v0, p0)
+function pfp!(f, x0, p0::Real = 1;
+    order = 2,
+    f´ = pcurve, converge_error = false,
+    store = pfp_store(x0, p0, order); kw...)
+    isextended, v0, vstore = store
     len = length(v0)
-    vstore = zeros(len, max(3m+3, 2m+4))
     function f!(vp´, vp)
         if isextended
             p = clamp(abs(last(vp)), 0.0, 1.0)
@@ -27,8 +26,16 @@ function pfp!(f, x0, p0::Real = 1; order = 2, f´ = pcurve, converge_error = fal
         isextended && (vp´[len] = f´(p))
         return vp´
     end
-    sol = aasol(f!, v0, m, vstore; kw...)
+    sol = aasol(f!, v0, order, vstore)
     return process_solution(sol, x0, isextended; converge_error)
+end
+
+function pfp_store(x0, p0, m)
+    isextended = p0 ≈ 1.0
+    v0 = tovec(x0)
+    isextended && push!(v0, p0)
+    vstore = zeros(length(v0), max(3m+3, 2m+4))
+    return isextended, v0, vstore
 end
 
 function process_solution(sol, x0, isextended; converge_error = false)
@@ -59,37 +66,5 @@ unvec!(x´::T, x) where {C<:Real,T<:AbstractVector{C}} = x === x´ ? x´ : copy!
 unvec!(x´::T, x) where {C<:Complex,T<:AbstractVector{C}} = copy!(x´, reinterpret(C, x))
 unvec!(x´::T, x) where {C<:Real,T<:AbstractArray{C}} = copy!(x´, reshape(x, size(x´)))
 unvec!(x´::T, x) where {C<:Complex,T<:AbstractArray{C}} = copy!(x´, reinterpret(C, reshape(x, size(x´))))
-
-
-# function fixedpoint!(f!::Function, x0::AbstractVector{T};
-#         order = 2,
-#         atol = 1e-8,
-#         maxiter = 100,
-#         dist = dx -> maximum(abs, dx),
-#         store = fp_store(T, length(x0), order)) where {T}
-#     done = false
-#     iters = 0
-#     err = zero(T)
-#     col = 1
-#     nrows, ncols = size(store)
-#     G, G´, b = store
-#     while !done
-#         f!(x, x0)
-#         x0 .= x .- x0
-#         dx = x0  # x0 is now dx
-#         err = dist(dx)
-#         iters += 1
-#         (iters > maxiter || err < atol) && break
-#         copycol!(G, dx, col)
-#         copycol!(G´, dx, col)
-
-#         col += mod1(col, ncols)
-#     end
-#     return (; x, error = err, iters)
-# end
-
-# fp_store(T, size...) = zeros(T, size...), zeros(T, size...), zeros(T, size[1])
-
-# copycol!(store, x, col) = copyto!(store, 1+(col-1)*length(x), x, 1, length(x))
 
 end # module
