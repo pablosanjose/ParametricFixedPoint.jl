@@ -48,23 +48,9 @@ function process_solution(sol, x0, isextended; converge_error = false)
             error("Did not reach p = 1.0, converged to p = $p")
         end
     end
-    return (; x = unvec!(x0, sol.solution), error = last(sol.history), iters = length(sol.history))
+    return (; x = sol.solution, error = last(sol.history), iters = length(sol.history))
 end
 
 pcurve(p) = abs(p) >= 1.0 ? 1.0 : sign(p) * sqrt(1.0 - (abs(p)-1.0)^2)
-
-tovec(x::Real) = [x]
-tovec(x::Complex) = [real(x), imag(x)]
-tovec(x::AbstractVector{T}) where {T<:Real} = copy(x)
-tovec(x::AbstractVector{T}) where {T<:Complex} = copy(reinterpret(real(T), x))
-tovec(x::AbstractArray{T}) where {T<:Real} = copy(vec(x))
-tovec(x::AbstractArray{T}) where {T<:Complex} = copy(reinterpret(real(T), vec(x)))
-
-unvec!(::T, x) where {T<:Real} = only(x)
-unvec!(::T, x) where {T<:Complex} = x[1] + im*x[2]
-unvec!(x´::T, x) where {C<:Real,T<:AbstractVector{C}} = x === x´ ? x´ : copy!(x´, x)
-unvec!(x´::T, x) where {C<:Complex,T<:AbstractVector{C}} = copy!(x´, reinterpret(C, x))
-unvec!(x´::T, x) where {C<:Real,T<:AbstractArray{C}} = copy!(x´, reshape(x, size(x´)))
-unvec!(x´::T, x) where {C<:Complex,T<:AbstractArray{C}} = copy!(x´, reinterpret(C, reshape(x, size(x´))))
 
 end # module
